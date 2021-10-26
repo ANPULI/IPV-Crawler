@@ -1,8 +1,9 @@
 /**
  * @name Duck Duck Go search
  */
-
-const keyword = ' https://track.mspy.click/aff_c'
+const tf = require('@tensorflow/tfjs-node');
+const toxicity = require('@tensorflow-models/toxicity');
+const use = require('@tensorflow-models/universal-sentence-encoder');
 
 const puppeteer = require('puppeteer');
 // Load wink-nlp package  & helpers.
@@ -17,9 +18,12 @@ const model = require( 'wink-eng-lite-model' );
 const nlp = winkNLP( model );
 // Require the BM25 Vectorizer.
 const BM25Vectorizer = require('wink-nlp/utilities/bm25-vectorizer');
+// const { tf } = require('wink-nlp/src/its.js');
 // Instantiate a vectorizer with the default configuration — no input config
 // parameter indicates use default.
 const bm25 = BM25Vectorizer();
+
+const keyword = ' https://track.mspy.click/aff_c';
 
 (async () => {
     // initiate the browser
@@ -38,23 +42,57 @@ const bm25 = BM25Vectorizer();
     })))
     // console.log(res)
 
+    // Load the model.
+    use.load().then(model => {
+        // Embed an array of sentences.
+        const sentences = res.map((it)=>{
+            return it.desc
+        });
+        model.embed(sentences).then(embeddings => {
+        // `embeddings` is a 2D tensor consisting of the 512-dimensional embeddings for each sentence.
+        // So in this example `embeddings` has the shape [2, 512].
+        embeddings.print(true /* verbose */);
+        let embArr = tf.split(embeddings, embeddings.shape[0], 0).map( it => it.reshape([embeddings.shape[1]]));
+        // console.log(embArr)
+        let rawData = []
+        for (let i = 0; i < embArr.length; i++) {
+            for (let j = 0; j < embArr.length; j++) {
+                let a = embArr[i];
+                let b = embArr[j];
+                rawData.push(a.dot(b).div(a.norm().mul(b.norm())).dataSync()[0])
+            }
+        }
+        let simMatrix = tf.tensor2d(rawData, [embArr.length, embArr.length])
+        simMatrix.print()
+        });
+    });
+    
     // go to each link 
-    for (let i = 0; i < res.length; i++) {
-        let ele = res[i]
-        await page.goto(ele.link, {waitUntil: 'networkidle2'})
-        await page.waitForSelector('body')
-        const body = await page.$eval('body', ele => ele.innerText.replace(/\s{2,}|\r\n|\r|\n/g," "))
-        ele.body = body
-        let doc = nlp.readDoc(body)
-        ele.doc = doc
-    }
+    // for (let i = 0; i < res.length; i++) {
+    //     let ele = res[i]
+    //     await page.goto(ele.link, {waitUntil: 'networkidle2'})
+    //     await page.waitForSelector('body')
+    //     const body = await page.$eval('body', ele => ele.innerText.replace(/\s{2,}|\r\n|\r|\n/g," "))
+    //     ele.body = body
+    //     let doc = nlp.readDoc(body)
+    //     ele.doc = doc
+    // }
 
     
-    res.forEach((ele) => {
-        bm25.learn(ele.doc.tokens().out(its.normal))
-    })
+    // res.forEach((ele) => {
+    //     bm25.learn(ele.doc.tokens().out(its.normal))
+    // })
 
-    console.log(bm25.out(its.tf))
+    // console.log(bm25.out(its.tf))
+
+    // toxicity.load(0.9).then(model => {
+    //     // Now you can use the `model` object to label sentences. 
+    //     model.classify(res[0].doc.out()).then(predictions => {
+    //         predictions.forEach(element => {
+    //             console.log(element.label, element.results)
+    //         });
+    //     });
+    // });
 
     await browser.close()
 })()
