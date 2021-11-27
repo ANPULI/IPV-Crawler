@@ -70,23 +70,18 @@ function remove_stopwords(str) {
     await page.type('#search_form_input_homepage', keyword)
     await page.click('#search_button_homepage')
     await page.waitForSelector('.result')
-    // for (let i = 0; i < 1; i++) {
-    //     await Promise.all([
-    //         await page.click('.result--more'),
-    //         await page.waitForNavigation(),
-    //         await page.waitForSelector('.result--more')
-    //     ])
-    //     // await page.click('.result--more')
-    //     // console.log("click #" + i)
-    //     // await page.waitForSelector('.result--more')
-    // }
-    await page.click('.result--more')
-    await page.waitForSelector('.result--more').then(() => {console.log('result more waited')})
+
+    for (let i = 0; i < 2; i++) {
+        const [response] = await Promise.all([
+            page.click('.result--more'),
+            page.waitForSelector('.result--more')
+        ])
+    }
     
 
     
 
-    let res = await page.$$eval('.result:not(.result--more)', el => el.map(ele => ({
+    let res = await page.$$eval('.result:not(.result--more):not(.result--sep)', el => el.map(ele => ({
         'title': ele.querySelector('.js-result-title').innerText,
         'link': ele.querySelector('.js-result-title-link').getAttribute('href'),
         'desc': ele.querySelector('.js-result-snippet').innerText
