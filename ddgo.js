@@ -40,7 +40,7 @@ const keyword = ' https://track.mspy.click/aff_c';
         'link': ele.querySelector('.js-result-title-link').getAttribute('href'), 
         'desc': ele.querySelector('.js-result-snippet').innerText
     })))
-    // console.log(res)
+    console.log(res)
 
     // Load the model.
     use.load().then(model => {
