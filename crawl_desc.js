@@ -5,9 +5,16 @@
 
 // puppeteer crawler
 const puppeteer = require('puppeteer');
+const keyword = 'mspy';
+const file_path = './mspy.json'
+// const keyword = 'https://track.mspy.click/aff_c';
+// const file_path = './aff_c.json'
+// const keyword = 'top mobile app';
+// const file_path = './app.json'
+const NPages = 4
 // file system
 const fs = require('fs');
-const file_path = './my_data.json'
+console.log(file_path)
 async function writeFile(filename, writedata) {
     try {
         await fs.promises.writeFile(filename, JSON.stringify(writedata, null, 4), 'utf8');
@@ -38,10 +45,6 @@ async function writeFile(filename, writedata) {
 // const bm25 = BM25Vectorizer();
 
 
-
-// const keyword = 'cheating mspy';
-const keyword = 'https://track.mspy.click/aff_c';
-
 const stopwords = ["a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any", "are", "aren't", "as", "at", "be", "because", "been", "before", "being", "below", "between", "both", "but", "by", "can't", "cannot", "could", "couldn't", "did", "didn't", "do", "does", "doesn't", "doing", "don't", "down", "during", "each", "few", "for", "from", "further", "had", "hadn't", "has", "hasn't", "have", "haven't", "having", "he", "he'd", "he'll", "he's", "her", "here", "here's", "hers", "herself", "him", "himself", "his", "how", "how's", "i", "i'd", "i'll", "i'm", "i've", "if", "in", "into", "is", "isn't", "it", "it's", "its", "itself", "let's", "me", "more", "most", "mustn't", "my", "myself", "no", "nor", "not", "of", "off", "on", "once", "only", "or", "other", "ought", "our", "ours", "ourselves", "out", "over", "own", "same", "shan't", "she", "she'd", "she'll", "she's", "should", "shouldn't", "so", "some", "such", "than", "that", "that's", "the", "their", "theirs", "them", "themselves", "then", "there", "there's", "these", "they", "they'd", "they'll", "they're", "they've", "this", "those", "through", "to", "too", "under", "until", "up", "very", "was", "wasn't", "we", "we'd", "we'll", "we're", "we've", "were", "weren't", "what", "what's", "when", "when's", "where", "where's", "which", "while", "who", "who's", "whom", "why", "why's", "with", "won't", "would", "wouldn't", "you", "you'd", "you'll", "you're", "you've", "your", "yours", "yourself", "yourselves"];
 
 function remove_stopwords(str) {
@@ -71,15 +74,14 @@ function remove_stopwords(str) {
     await page.click('#search_button_homepage')
     await page.waitForSelector('.result')
 
-    for (let i = 0; i < 2; i++) {
+    // load n more pages
+    for (let i = 0; i < NPages; i++) {
         const [response] = await Promise.all([
             page.click('.result--more'),
+            page.waitForNetworkIdle(),
             page.waitForSelector('.result--more')
         ])
     }
-    
-
-    
 
     let res = await page.$$eval('.result:not(.result--more):not(.result--sep)', el => el.map(ele => ({
         'title': ele.querySelector('.js-result-title').innerText,
@@ -87,8 +89,27 @@ function remove_stopwords(str) {
         'desc': ele.querySelector('.js-result-snippet').innerText
     })))
     // res = res.slice(0, 2) // temp
-    console.log(res[0].desc)
-    console.log(remove_stopwords(res[0].desc))
+    // console.log(res[0].desc)
+    // console.log(remove_stopwords(res[0].desc))
+
+    // go to each link 
+    for (let i = 0; i < res.length; i++) {
+        try {
+            console.log("load #"+i)
+            let ele = res[i]
+            await page.goto(ele.link
+                , {waitUntil: 'networkidle2', timeout: 0}
+                )
+            await page.waitForSelector('body')
+            const body = await page.$eval('body', ele => ele.innerText.replace(/\s{2,}|\r\n|\r|\n/g, " "))
+            let p = await page.$$eval('p', ele => ele.map(el => el.innerText.replace(/\s{2,}|\r\n|\r|\n/g, " ")));
+            p = p.join(' ')
+            ele.body = p
+        }
+        catch (e) {
+
+        }
+    }
 
     writeFile(file_path, res)
 
@@ -118,18 +139,6 @@ function remove_stopwords(str) {
     //     });
     // });
 
-    // go to each link 
-    //  for (let i = 0; i < res.length; i++) {
-    //      let ele = res[i]
-    //      await page.goto(ele.link, {waitUntil: 'load', timeout: 0})
-    //      await page.waitForSelector('body')
-    //      const body = await page.$eval('body', ele => ele.innerText.replace(/\s{2,}|\r\n|\r|\n/g," "))
-    //      let p = await page.$$eval('p', ele => ele.map(el => el.innerText.replace(/\s{2,}|\r\n|\r|\n/g," ")));
-    //      p = p.join(' ')
-    //      ele.body = p
-    //      let doc = nlp.readDoc(p)
-    //      ele.doc = doc
-    //  }
 
 
     // bm25 learning
